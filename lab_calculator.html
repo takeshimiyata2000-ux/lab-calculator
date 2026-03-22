@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lab Calculator — 食品化学研究室</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #ffffff; --bg2: #f5f5f3; --bg3: #eeecea;
+    --text: #1a1a1a; --text2: #666; --text3: #999;
+    --border: rgba(0,0,0,0.10); --border2: rgba(0,0,0,0.18);
+    --blue-bg: #e6f1fb; --blue-text: #185fa5;
+    --warn-bg: #faeeda; --warn-text: #854f0b;
+    --suc-bg: #eaf3de; --suc-text: #3b6d11;
+    --danger: #a32d2d;
+    --radius: 8px; --radius-lg: 12px;
+    --font: -apple-system, 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+    --mono: 'SF Mono', 'Menlo', 'Consolas', monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1e1e1c; --bg2: #28281f; --bg3: #2e2e28;
+      --text: #f0ede8; --text2: #aaa; --text3: #666;
+      --border: rgba(255,255,255,0.10); --border2: rgba(255,255,255,0.20);
+      --blue-bg: #0c447c; --blue-text: #b5d4f4;
+      --warn-bg: #633806; --warn-text: #fac775;
+      --suc-bg: #27500a; --suc-text: #c0dd97;
+      --danger: #f09595;
+    }
+  }
+  body { font-family: var(--font); background: var(--bg3); color: var(--text); min-height: 100vh; padding: 24px 16px; }
+  .container { max-width: 760px; margin: 0 auto; }
+  header { margin-bottom: 24px; }
+  header h1 { font-size: 20px; font-weight: 500; color: var(--text); }
+  header p { font-size: 13px; color: var(--text2); margin-top: 4px; }
+
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 20px; }
+  .tab { padding: 7px 16px; font-size: 13px; border: 0.5px solid var(--border2); border-radius: var(--radius); cursor: pointer; background: var(--bg); color: var(--text2); font-family: var(--font); transition: all 0.15s; }
+  .tab.active { background: var(--text); color: var(--bg); border-color: var(--text); font-weight: 500; }
+  .tab:hover:not(.active) { background: var(--bg2); }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 14px; }
+  label.lbl { font-size: 12px; color: var(--text2); margin-bottom: 6px; display: block; }
+  input[type=text], input[type=number], select, textarea {
+    width: 100%; padding: 9px 12px; font-size: 14px; font-family: var(--font);
+    border: 0.5px solid var(--border2); border-radius: var(--radius);
+    background: var(--bg2); color: var(--text); outline: none;
+    transition: border-color 0.15s;
+  }
+  input:focus, select:focus, textarea:focus { border-color: #378ADD; }
+  textarea { font-family: var(--mono); font-size: 13px; resize: vertical; line-height: 1.6; }
+  .hint { font-size: 12px; color: var(--text3); margin-top: 5px; }
+  .error { color: var(--danger); font-size: 13px; margin-top: 8px; }
+  .divider { border: none; border-top: 0.5px solid var(--border); margin: 14px 0; }
+  .sec-title { font-size: 13px; font-weight: 500; color: var(--text2); margin-bottom: 12px; }
+
+  .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
+  @media (max-width: 560px) { .metrics { grid-template-columns: repeat(2, 1fr); } }
+  .metric { background: var(--bg2); border-radius: var(--radius); padding: 14px; }
+  .metric-lbl { font-size: 11px; color: var(--text2); margin-bottom: 4px; }
+  .metric-val { font-size: 22px; font-weight: 500; }
+  .metric-sub { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+  table.rt { width: 100%; font-size: 13px; border-collapse: collapse; }
+  table.rt td { padding: 6px 4px; border-bottom: 0.5px solid var(--border); }
+  table.rt td:last-child { text-align: right; font-family: var(--mono); }
+  table.rt tr:last-child td { border-bottom: none; }
+
+  .tag { display: inline-block; font-size: 11px; padding: 2px 9px; border-radius: var(--radius); margin: 0 3px 4px 0; }
+  .tag-blue { background: var(--blue-bg); color: var(--blue-text); }
+  .tag-warn { background: var(--warn-bg); color: var(--warn-text); }
+  .tag-suc  { background: var(--suc-bg);  color: var(--suc-text); }
+
+  .aa-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; margin-top: 8px; }
+  @media (max-width: 480px) { .aa-grid { grid-template-columns: repeat(5, 1fr); } }
+  .aa-cell { text-align: center; padding: 6px 2px; border-radius: 4px; font-size: 11px; font-family: var(--mono); background: var(--bg2); color: var(--text2); }
+  .aa-cell.present { background: var(--blue-bg); color: var(--blue-text); font-weight: 500; }
+  .aa-cell .cnt { font-size: 10px; display: block; color: var(--text3); }
+  .aa-cell.present .cnt { color: var(--blue-text); }
+
+  .chart-wrap { position: relative; height: 180px; margin-top: 8px; }
+
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+  .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+  .row4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+  @media (max-width: 480px) { .row2,.row3,.row4 { grid-template-columns: 1fr 1fr; } }
+
+  .res-box { background: var(--bg2); border-radius: var(--radius); padding: 14px; margin-top: 12px; }
+  .res-num { font-size: 26px; font-weight: 500; }
+  .res-unit { font-size: 14px; color: var(--text2); margin-left: 4px; }
+  .res-sub { font-size: 12px; color: var(--text2); margin-top: 4px; }
+
+  footer { text-align: center; font-size: 11px; color: var(--text3); margin-top: 32px; padding-top: 16px; border-top: 0.5px solid var(--border); }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>🧪 Lab Calculator</h1>
+    <p>食品化学研究室 — タンパク質・溶液計算ツール</p>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('protein',this)">配列解析（MW・pI）</button>
+    <button class="tab" onclick="switchTab('mw',this)">化学式 MW</button>
+    <button class="tab" onclick="switchTab('dilution',this)">希釈計算</button>
+    <button class="tab" onclick="switchTab('buffer',this)">バッファー</button>
+    <button class="tab" onclick="switchTab('unit',this)">単位変換</button>
+  </div>
+
+  <!-- === 配列解析 === -->
+  <div id="panel-protein" class="panel active">
+    <div class="card">
+      <label class="lbl">アミノ酸配列（一文字略号 または FASTA形式）</label>
+      <textarea id="seq-input" rows="6" placeholder="MKVLSGEDKSNIKAAWGKIGGHGAEYGAEALERMFLSFPTTKTYFPHFDLSHGSAQVKGHGKKVADALTNAV...&#10;&#10;または FASTA 形式:&#10;&gt;protein_name&#10;MKVLSGEDK..." oninput="runCalc()"></textarea>
+      <p class="hint">スペース・改行・数字は自動除去。FASTAの &gt;ヘッダー行も無視されます。</p>
+      <div id="seq-error"></div>
+    </div>
+
+    <div id="results" style="display:none;">
+      <div class="metrics">
+        <div class="metric"><div class="metric-lbl">分子量</div><div class="metric-val" id="res-mw">—</div><div class="metric-sub">Da (g/mol)</div></div>
+        <div class="metric"><div class="metric-lbl">分子量</div><div class="metric-val" id="res-kda">—</div><div class="metric-sub">kDa</div></div>
+        <div class="metric"><div class="metric-lbl">等電点 (pI)</div><div class="metric-val" id="res-pi">—</div><div class="metric-sub">理論値</div></div>
+        <div class="metric"><div class="metric-lbl">残基数</div><div class="metric-val" id="res-len">—</div><div class="metric-sub">アミノ酸</div></div>
+      </div>
+
+      <div class="card">
+        <div class="sec-title">タンパク質の性質</div>
+        <div id="tags" style="margin-bottom:12px;"></div>
+        <table class="rt">
+          <tr><td>SDS-PAGE 予測バンド</td><td id="res-sds">—</td></tr>
+          <tr><td>正味電荷 (pH 7.0)</td><td id="res-charge7">—</td></tr>
+          <tr><td>正味電荷 (pH 7.4)</td><td id="res-charge74">—</td></tr>
+          <tr><td>消光係数 ε₂₈₀ (M⁻¹cm⁻¹)</td><td id="res-ext">—</td></tr>
+          <tr><td>A₂₈₀ = 1.0 のとき</td><td id="res-a1">—</td></tr>
+          <tr><td>疎水性残基の割合</td><td id="res-hydro">—</td></tr>
+          <tr><td>荷電残基の割合</td><td id="res-charged">—</td></tr>
+        </table>
+      </div>
+
+      <div class="card">
+        <div class="sec-title">電荷プロファイル (pH 1–14)</div>
+        <div class="chart-wrap"><canvas id="charge-chart"></canvas></div>
+      </div>
+
+      <div class="card">
+        <div class="sec-title">アミノ酸組成</div>
+        <div class="aa-grid" id="aa-grid"></div>
+      </div>
+
+      <div class="card">
+        <div class="sec-title">荷電残基の内訳</div>
+        <table class="rt" id="charge-table"></table>
+      </div>
+    </div>
+  </div>
+
+  <!-- === 化学式 MW === -->
+  <div id="panel-mw" class="panel">
+    <div class="card">
+      <label class="lbl">化学式（例: H2O, C6H12O6, NaCl）</label>
+      <input type="text" id="mw-formula" placeholder="C6H12O6" oninput="calcMW()" style="font-family:var(--mono);">
+      <p class="hint">大文字・小文字を正確に（例: NaCl, H2SO4）</p>
+      <div id="mw-atoms" style="margin-top:10px; line-height:1.8;"></div>
+    </div>
+    <div id="mw-result"></div>
+  </div>
+
+  <!-- === 希釈計算 === -->
+  <div id="panel-dilution" class="panel">
+    <div class="card">
+      <div class="sec-title">C₁V₁ = C₂V₂</div>
+      <div class="row2">
+        <div><label class="lbl">初期濃度 C₁</label><input type="number" id="dil-c1" placeholder="1000" oninput="calcDilution()"></div>
+        <div><label class="lbl">濃度単位</label><select id="dil-unit" onchange="calcDilution()"><option>mM</option><option>µM</option><option>mg/mL</option><option>%</option><option>ng/µL</option></select></div>
+      </div>
+      <div class="row2">
+        <div><label class="lbl">目標濃度 C₂</label><input type="number" id="dil-c2" placeholder="100" oninput="calcDilution()"></div>
+        <div><label class="lbl">目標体積 V₂ (µL)</label><input type="number" id="dil-v2" placeholder="1000" oninput="calcDilution()"></div>
+      </div>
+      <div id="dil-result"></div>
+    </div>
+  </div>
+
+  <!-- === バッファー === -->
+  <div id="panel-buffer" class="panel">
+    <div class="card">
+      <div class="sec-title">Henderson-Hasselbalch式</div>
+      <label class="lbl">バッファー系</label>
+      <select id="buf-type" onchange="calcBuffer()">
+        <option value="4.76">酢酸バッファー (pKa = 4.76)</option>
+        <option value="6.86">リン酸バッファー (pKa = 6.86)</option>
+        <option value="8.06">トリス (pKa = 8.06)</option>
+        <option value="6.10">MES (pKa = 6.10)</option>
+        <option value="7.20">PIPES (pKa = 7.20)</option>
+        <option value="7.48">HEPES (pKa = 7.48)</option>
+        <option value="custom">カスタム pKa</option>
+      </select>
+      <div id="pka-custom" style="display:none; margin-top:10px;">
+        <label class="lbl">pKa 値</label>
+        <input type="number" id="buf-pka-val" placeholder="7.0" step="0.01" oninput="calcBuffer()">
+      </div>
+      <hr class="divider">
+      <div class="row2">
+        <div><label class="lbl">目標 pH</label><input type="number" id="buf-ph" placeholder="7.4" step="0.1" min="0" max="14" oninput="calcBuffer()"></div>
+        <div><label class="lbl">総濃度 (mM)</label><input type="number" id="buf-conc" placeholder="100" oninput="calcBuffer()"></div>
+      </div>
+      <div id="buf-result"></div>
+    </div>
+  </div>
+
+  <!-- === 単位変換 === -->
+  <div id="panel-unit" class="panel">
+    <div class="card">
+      <div class="sec-title">濃度変換（モル ↔ 質量）</div>
+      <div class="row3">
+        <div><label class="lbl">分子量 (g/mol)</label><input type="number" id="uc-mw" placeholder="180.16" oninput="calcUnitConv()"></div>
+        <div><label class="lbl">値</label><input type="number" id="uc-val" placeholder="1" oninput="calcUnitConv()"></div>
+        <div><label class="lbl">変換方向</label>
+          <select id="uc-from" onchange="calcUnitConv()">
+            <option value="mM">mM → mg/mL</option>
+            <option value="uM">µM → µg/mL</option>
+            <option value="mgmL">mg/mL → mM</option>
+            <option value="ugmL">µg/mL → µM</option>
+          </select>
+        </div>
+      </div>
+      <div id="uc-result"></div>
+    </div>
+    <div class="card">
+      <div class="sec-title">体積・質量変換</div>
+      <div class="row2">
+        <div><label class="lbl">値</label><input type="number" id="vol-val" placeholder="1" oninput="calcVol()"></div>
+        <div><label class="lbl">単位</label>
+          <select id="vol-from" onchange="calcVol()">
+            <option value="L_mL">L → mL</option><option value="mL_uL">mL → µL</option>
+            <option value="uL_nL">µL → nL</option><option value="g_mg">g → mg</option>
+            <option value="mg_ug">mg → µg</option><option value="ug_ng">µg → ng</option>
+            <option value="mL_L">mL → L</option><option value="uL_mL">µL → mL</option>
+          </select>
+        </div>
+      </div>
+      <div id="vol-result"></div>
+    </div>
+  </div>
+
+  <footer>食品化学研究室 · 鹿児島大学農学部 · このツールはオフライン動作します</footer>
+</div>
+
+<script>
+// ======== データ ========
+const AA_MW = {A:89.094,R:174.202,N:132.119,D:133.104,C:121.159,E:147.130,Q:146.146,G:75.032,H:137.141,I:131.174,L:131.174,K:146.189,M:149.208,F:165.192,P:115.132,S:105.093,T:119.119,W:204.228,Y:181.191,V:117.148};
+const WATER = 18.015;
+const PKA = {Nterm:8.0,Cterm:3.1,D:3.9,E:4.07,H:6.04,C:8.14,Y:10.46,K:10.54,R:12.48};
+const AA_NAMES = {A:'Ala',R:'Arg',N:'Asn',D:'Asp',C:'Cys',E:'Glu',Q:'Gln',G:'Gly',H:'His',I:'Ile',L:'Leu',K:'Lys',M:'Met',F:'Phe',P:'Pro',S:'Ser',T:'Thr',W:'Trp',Y:'Tyr',V:'Val'};
+const HYDROPHOBIC = new Set(['A','V','L','I','P','F','M','W']);
+const CHARGED_AA  = new Set(['R','K','D','E','H']);
+const ATOMS = {H:1.008,He:4.003,Li:6.941,Be:9.012,B:10.811,C:12.011,N:14.007,O:15.999,F:18.998,Na:22.990,Mg:24.305,Al:26.982,Si:28.086,P:30.974,S:32.065,Cl:35.453,K:39.098,Ca:40.078,Fe:55.845,Co:58.933,Ni:58.693,Cu:63.546,Zn:65.38,Br:79.904,I:126.904};
+
+// ======== タブ ========
+function switchTab(name, btn) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('panel-'+name).classList.add('active');
+}
+
+// ======== 配列解析 ========
+function calcCharge(seq,ph) {
+  const c={};
+  for(const x of seq) c[x]=(c[x]||0)+1;
+  let q=0;
+  q += 1/(1+Math.pow(10,ph-PKA.Nterm));
+  q -= 1/(1+Math.pow(10,PKA.Cterm-ph));
+  if(c.D) q -= c.D/(1+Math.pow(10,PKA.D-ph));
+  if(c.E) q -= c.E/(1+Math.pow(10,PKA.E-ph));
+  if(c.H) q += c.H/(1+Math.pow(10,ph-PKA.H));
+  if(c.C) q -= c.C/(1+Math.pow(10,PKA.C-ph));
+  if(c.Y) q -= c.Y/(1+Math.pow(10,PKA.Y-ph));
+  if(c.K) q += c.K/(1+Math.pow(10,ph-PKA.K));
+  if(c.R) q += c.R/(1+Math.pow(10,ph-PKA.R));
+  return q;
+}
+function calcPI(seq) {
+  let lo=0,hi=14;
+  for(let i=0;i<200;i++){const m=(lo+hi)/2;if(calcCharge(seq,m)>0)lo=m;else hi=m;}
+  return (lo+hi)/2;
+}
+let chartInst=null;
+function runCalc() {
+  const raw=document.getElementById('seq-input').value;
+  const errEl=document.getElementById('seq-error');
+  const resDiv=document.getElementById('results');
+  if(!raw.trim()){resDiv.style.display='none';errEl.innerHTML='';return;}
+  const seq=raw.replace(/>.*(\n|\r\n?)/g,'').replace(/[^A-Za-z]/g,'').toUpperCase();
+  if(!seq.length){errEl.innerHTML='<p class="error">有効な配列が見つかりません</p>';resDiv.style.display='none';return;}
+  const inv=[...new Set(seq.split('').filter(c=>!AA_MW[c]))];
+  if(inv.length){errEl.innerHTML=`<p class="error">未知の文字: ${inv.join(', ')}</p>`;resDiv.style.display='none';return;}
+  errEl.innerHTML='';
+
+  let mw=WATER;
+  const cnt={};
+  for(const c of seq){mw+=AA_MW[c]-WATER;cnt[c]=(cnt[c]||0)+1;}
+  const pi=calcPI(seq);
+  const q7=calcCharge(seq,7.0),q74=calcCharge(seq,7.4);
+  const nW=cnt.W||0,nY=cnt.Y||0,nC=cnt.C||0;
+  const ext=nW*5500+nY*1490+nC*125;
+
+  function sdsBand(m){const k=m/1000;if(k<10)return'< 10 kDa';if(k<20)return'10–20 kDa';if(k<35)return'20–35 kDa';if(k<50)return'35–50 kDa';if(k<75)return'50–75 kDa';if(k<100)return'75–100 kDa';if(k<150)return'100–150 kDa';return'> 150 kDa';}
+
+  document.getElementById('res-mw').textContent=Math.round(mw).toLocaleString();
+  document.getElementById('res-kda').textContent=(mw/1000).toFixed(2);
+  document.getElementById('res-pi').textContent=pi.toFixed(2);
+  document.getElementById('res-len').textContent=seq.length;
+  document.getElementById('res-sds').textContent=sdsBand(mw);
+  document.getElementById('res-charge7').textContent=q7.toFixed(2);
+  document.getElementById('res-charge74').textContent=q74.toFixed(2);
+  document.getElementById('res-ext').textContent=ext>0?ext.toLocaleString():'— (W/Y/Cなし)';
+  document.getElementById('res-a1').textContent=ext>0?`${(mw/ext).toFixed(4)} mg/mL`:'—';
+  const hCount=[...seq].filter(c=>HYDROPHOBIC.has(c)).length;
+  const chCount=[...seq].filter(c=>CHARGED_AA.has(c)).length;
+  document.getElementById('res-hydro').textContent=`${((hCount/seq.length)*100).toFixed(1)}%`;
+  document.getElementById('res-charged').textContent=`${((chCount/seq.length)*100).toFixed(1)}%`;
+
+  let tags='';
+  if(pi<6.5)tags+='<span class="tag tag-blue">酸性タンパク質</span>';
+  else if(pi>8.0)tags+='<span class="tag tag-warn">塩基性タンパク質</span>';
+  else tags+='<span class="tag tag-suc">中性付近</span>';
+  if(mw/1000>100)tags+='<span class="tag tag-blue">大型 (>100 kDa)</span>';
+  else if(mw/1000<15)tags+='<span class="tag tag-suc">小型 (<15 kDa)</span>';
+  if(nW>0||nY>0)tags+='<span class="tag tag-blue">UV検出可</span>';
+  if(nC>0)tags+='<span class="tag tag-warn">Cys含有</span>';
+  document.getElementById('tags').innerHTML=tags;
+
+  const allAA='ACDEFGHIKLMNPQRSTVWY'.split('');
+  document.getElementById('aa-grid').innerHTML=allAA.map(aa=>{
+    const n=cnt[aa]||0;
+    const cls=n>0?'present':'';
+    return `<div class="aa-cell ${cls}" title="${AA_NAMES[aa]}: ${n}残基">${aa}<span class="cnt">${n}</span></div>`;
+  }).join('');
+
+  const chargeRows=[['N末端',PKA.Nterm.toFixed(2),1,'+'],[`Asp (D)`,PKA.D.toFixed(2),cnt.D||0,'−'],[`Glu (E)`,PKA.E.toFixed(2),cnt.E||0,'−'],[`His (H)`,PKA.H.toFixed(2),cnt.H||0,'+'],[`Cys (C)`,PKA.C.toFixed(2),cnt.C||0,'−'],[`Tyr (Y)`,PKA.Y.toFixed(2),cnt.Y||0,'−'],[`Lys (K)`,PKA.K.toFixed(2),cnt.K||0,'+'],[`Arg (R)`,PKA.R.toFixed(2),cnt.R||0,'+'],[`C末端`,PKA.Cterm.toFixed(2),1,'−']];
+  document.getElementById('charge-table').innerHTML='<tr style="font-size:11px;color:var(--text2)"><td>残基</td><td>pKa</td><td>数</td><td>電荷</td></tr>'+chargeRows.filter(([,, n, s])=>n>0||(s==='+'&&n===1)||(s==='−'&&n===1)).map(([name,pka,n,sign])=>`<tr><td>${name}</td><td>${pka}</td><td>${n}</td><td>${sign}</td></tr>`).join('');
+
+  const phVals=[],chargeVals=[];
+  for(let ph=0;ph<=14;ph+=0.1){phVals.push(ph.toFixed(1));chargeVals.push(parseFloat(calcCharge(seq,ph).toFixed(3)));}
+  if(chartInst)chartInst.destroy();
+  const ctx=document.getElementById('charge-chart').getContext('2d');
+  const isDark=window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const gridColor=isDark?'rgba(255,255,255,0.08)':'rgba(0,0,0,0.07)';
+  const tickColor=isDark?'#888':'#999';
+  chartInst=new Chart(ctx,{type:'line',data:{labels:phVals,datasets:[{data:chargeVals,borderColor:'#378ADD',borderWidth:1.5,pointRadius:0,tension:0.3,fill:{target:{value:0},above:'rgba(55,138,221,0.10)',below:'rgba(226,75,74,0.10)'}}]},options:{animation:false,responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{title:i=>`pH ${i[0].label}`,label:i=>`電荷: ${i.raw.toFixed(2)}`}}},scales:{x:{ticks:{maxTicksLimit:8,font:{size:11},color:tickColor},grid:{color:gridColor},title:{display:true,text:'pH',font:{size:11},color:tickColor}},y:{ticks:{font:{size:11},color:tickColor},grid:{color:gridColor},title:{display:true,text:'正味電荷',font:{size:11},color:tickColor}}}}});
+  resDiv.style.display='block';
+}
+
+// ======== 化学式 MW ========
+function parseFormula(f){const stack=[{}];let i=0;while(i<f.length){if(f[i]==='('){stack.push({});i++;}else if(f[i]===')'){i++;let num='';while(i<f.length&&/\d/.test(f[i])){num+=f[i];i++;}const mult=parseInt(num||'1');const top=stack.pop();for(const k in top)stack[stack.length-1][k]=(stack[stack.length-1][k]||0)+top[k]*mult;}else if(/[A-Z]/.test(f[i])){let el=f[i];i++;while(i<f.length&&/[a-z]/.test(f[i])){el+=f[i];i++;}let num='';while(i<f.length&&/\d/.test(f[i])){num+=f[i];i++;}const cnt=parseInt(num||'1');stack[stack.length-1][el]=(stack[stack.length-1][el]||0)+cnt;}else return null;}return stack[0];}
+function calcMW(){
+  const f=document.getElementById('mw-formula').value.trim();
+  const rEl=document.getElementById('mw-result'),aEl=document.getElementById('mw-atoms');
+  if(!f){rEl.innerHTML='';aEl.innerHTML='';return;}
+  const atoms=parseFormula(f);
+  if(!atoms){rEl.innerHTML='<p class="error">化学式の形式が正しくありません</p>';aEl.innerHTML='';return;}
+  let mw=0;const unk=[];
+  for(const el in atoms){if(!ATOMS[el])unk.push(el);else mw+=ATOMS[el]*atoms[el];}
+  if(unk.length){rEl.innerHTML=`<p class="error">未登録の元素: ${unk.join(', ')}</p>`;return;}
+  let chips='';
+  for(const el in atoms)chips+=`<span style="display:inline-block;font-size:12px;padding:3px 8px;margin:2px;border-radius:4px;border:0.5px solid var(--border2);background:var(--bg2);font-family:var(--mono)">${el}: ${atoms[el]} × ${ATOMS[el]} = ${(ATOMS[el]*atoms[el]).toFixed(3)}</span>`;
+  aEl.innerHTML=chips;
+  rEl.innerHTML=`<div class="res-box"><span class="res-num">${mw.toFixed(3)}</span><span class="res-unit">g/mol</span><div class="res-sub">= ${(mw/1000).toFixed(6)} kDa</div><hr class="divider"><table class="rt"><tr><td>1 mM 溶液 1 mL 調製</td><td>${(mw*1e-3).toFixed(4)} mg</td></tr><tr><td>1 mg/mL のモル濃度</td><td>${(1000/mw).toFixed(4)} mM</td></tr></table></div>`;
+}
+
+// ======== 希釈 ========
+function calcDilution(){
+  const c1=parseFloat(document.getElementById('dil-c1').value);
+  const c2=parseFloat(document.getElementById('dil-c2').value);
+  const v2=parseFloat(document.getElementById('dil-v2').value);
+  const unit=document.getElementById('dil-unit').value;
+  const el=document.getElementById('dil-result');
+  if(isNaN(c1)||isNaN(c2)||isNaN(v2)||c1<=0||c2<=0||v2<=0){el.innerHTML='';return;}
+  if(c2>c1){el.innerHTML='<p class="error">目標濃度は初期濃度より小さくしてください</p>';return;}
+  const v1=(c2*v2)/c1,vs=v2-v1;
+  el.innerHTML=`<div class="res-box"><div>原液 <span class="res-num" style="font-size:20px">${v1.toFixed(2)}</span> µL を採取</div><div class="res-sub" style="margin-top:6px;">溶媒 ${vs.toFixed(2)} µL を加えて合計 ${v2} µL にする</div><hr class="divider"><table class="rt"><tr><td>希釈倍率</td><td>${(c1/c2).toFixed(2)} 倍</td></tr><tr><td>最終濃度</td><td>${c2} ${unit}</td></tr></table></div>`;
+}
+
+// ======== バッファー ========
+document.getElementById('buf-type').addEventListener('change',function(){
+  document.getElementById('pka-custom').style.display=this.value==='custom'?'block':'none';
+  calcBuffer();
+});
+function calcBuffer(){
+  const t=document.getElementById('buf-type');
+  let pka=t.value==='custom'?parseFloat(document.getElementById('buf-pka-val').value):parseFloat(t.value);
+  const ph=parseFloat(document.getElementById('buf-ph').value);
+  const conc=parseFloat(document.getElementById('buf-conc').value);
+  const el=document.getElementById('buf-result');
+  if(isNaN(pka)||isNaN(ph)||isNaN(conc)||conc<=0){el.innerHTML='';return;}
+  const ratio=Math.pow(10,ph-pka);
+  const base=(ratio/(1+ratio))*conc,acid=conc-base;
+  el.innerHTML=`<div class="res-box"><table class="rt"><tr><td>[塩基型] / [酸型]</td><td>${ratio.toFixed(3)}</td></tr><tr><td>塩基型 (conjugate base)</td><td>${base.toFixed(2)} mM</td></tr><tr><td>酸型 (weak acid)</td><td>${acid.toFixed(2)} mM</td></tr><tr><td>有効緩衝範囲</td><td>pH ${(pka-1).toFixed(2)} — ${(pka+1).toFixed(2)}</td></tr></table><p class="hint" style="margin-top:8px;">pH = pKa + log([塩基型]/[酸型])</p></div>`;
+}
+
+// ======== 単位変換 ========
+function calcUnitConv(){
+  const mw=parseFloat(document.getElementById('uc-mw').value);
+  const val=parseFloat(document.getElementById('uc-val').value);
+  const mode=document.getElementById('uc-from').value;
+  const el=document.getElementById('uc-result');
+  if(isNaN(mw)||isNaN(val)||mw<=0){el.innerHTML='';return;}
+  let r,from,to;
+  if(mode==='mM'){r=val*mw/1000;from=`${val} mM`;to=`${r.toFixed(4)} mg/mL`;}
+  if(mode==='uM'){r=val*mw/1000;from=`${val} µM`;to=`${r.toFixed(4)} µg/mL`;}
+  if(mode==='mgmL'){r=val/mw*1000;from=`${val} mg/mL`;to=`${r.toFixed(4)} mM`;}
+  if(mode==='ugmL'){r=val/mw;from=`${val} µg/mL`;to=`${r.toFixed(4)} µM`;}
+  el.innerHTML=`<div class="res-box">${from} → <strong>${to}</strong></div>`;
+}
+function calcVol(){
+  const val=parseFloat(document.getElementById('vol-val').value);
+  const mode=document.getElementById('vol-from').value;
+  const el=document.getElementById('vol-result');
+  if(isNaN(val)){el.innerHTML='';return;}
+  const map={L_mL:[1000,'L','mL'],mL_uL:[1000,'mL','µL'],uL_nL:[1000,'µL','nL'],g_mg:[1000,'g','mg'],mg_ug:[1000,'mg','µg'],ug_ng:[1000,'µg','ng'],mL_L:[0.001,'mL','L'],uL_mL:[0.001,'µL','mL']};
+  const[f,from,to]=map[mode];
+  el.innerHTML=`<div class="res-box">${val} ${from} = <strong>${(val*f).toLocaleString()} ${to}</strong></div>`;
+}
+</script>
+</body>
+</html>
